@@ -101,6 +101,7 @@
                                 <thead>
                                     <tr class="border-b border-slate-700">
                                         <th class="text-left p-3">Voice Name</th>
+                                        <th class="text-left p-3">Category</th>
                                         <th class="text-left p-3">Status</th>
                                         <th class="text-left p-3">Actions</th>
                                     </tr>
@@ -118,6 +119,10 @@
                             <div>
                                 <label class="block text-sm font-medium mb-2">Voice Name</label>
                                 <input id="voiceName" type="text" placeholder="Voice Name" class="w-full p-3 bg-slate-700 rounded" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Category</label>
+                                <input id="voiceCategory" type="text" placeholder="Language or Type" class="w-full p-3 bg-slate-700 rounded" required>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium mb-2">Upload .onnx Model</label>
@@ -253,6 +258,27 @@
         <!-- Toast Notifications -->
         <div id="toast" class="fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg hidden z-50">
             <span id="toastMessage"></span>
+        </div>
+        
+        <!-- Edit Voice Modal -->
+        <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-slate-800 p-6 rounded-lg w-96">
+                <h3 class="text-xl font-bold mb-4">Edit Voice</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Voice Name</label>
+                        <input id="editName" type="text" class="w-full p-3 bg-slate-700 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Category</label>
+                        <input id="editCategory" type="text" class="w-full p-3 bg-slate-700 rounded">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="saveVoiceEdit()" class="flex-1 bg-blue-600 hover:bg-blue-700 p-3 rounded font-semibold">Save</button>
+                        <button onclick="closeEditModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 p-3 rounded font-semibold">Cancel</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -448,11 +474,13 @@
                     const table = document.getElementById("voicesTable");
                     table.innerHTML = voices.map(v => `
                         <tr class="border-b border-slate-700">
-                            <td class="p-3">${v}</td>
+                            <td class="p-3">${v.name || v}</td>
+                            <td class="p-3">${v.category || 'N/A'}</td>
                             <td class="p-3"><span class="text-green-500">Loaded</span></td>
                             <td class="p-3">
-                                <button onclick="testVoice('${v}')" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm mr-2">Test</button>
-                                <button onclick="deleteVoice('${v}')" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm">Delete</button>
+                                <button onclick="testVoice('${v.name || v}')" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm mr-2">Test</button>
+                                <button onclick="editVoice('${v.name || v}','${v.category || ''}')" class="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded text-sm mr-2">Edit</button>
+                                <button onclick="deleteVoice('${v.name || v}')" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm">Delete</button>
                             </td>
                         </tr>
                     `).join("");
@@ -460,7 +488,7 @@
                     // Update voice selector dropdown for API tester
                     const selector = document.getElementById('voice');
                     selector.innerHTML = '<option value="">Select Voice</option>' + 
-                        voices.map(v => `<option value="${v}">${v}</option>`).join('');
+                        voices.map(v => `<option value="${v.name || v}">${v.name || v}</option>`).join('');
                         
                     // Update voices loaded count
                     document.getElementById('voicesLoaded').textContent = voices.length;
@@ -494,11 +522,12 @@
         // Upload Voice with Progress Bar
         async function uploadVoice(){
             const voiceName = document.getElementById("voiceName").value;
+            const voiceCategory = document.getElementById("voiceCategory").value;
             const modelFile = document.getElementById("modelFile").files[0];
             const configFile = document.getElementById("configFile").files[0];
 
-            if (!voiceName || !modelFile || !configFile) {
-                alert("Please provide voice name and both files");
+            if (!voiceName || !voiceCategory || !modelFile || !configFile) {
+                alert("Please provide voice name, category, and both files");
                 return;
             }
 
@@ -506,6 +535,7 @@
 
             // IMPORTANT: field names must match FastAPI
             formData.append("voice_name", voiceName);
+            formData.append("category", voiceCategory);
             formData.append("model", modelFile);
             formData.append("config", configFile);
 
@@ -558,6 +588,7 @@
                     
                     // Clear form and hide progress
                     document.getElementById("voiceName").value = "";
+                    document.getElementById("voiceCategory").value = "";
                     document.getElementById("modelFile").value = "";
                     document.getElementById("configFile").value = "";
                     progressContainer.classList.add("hidden");
@@ -585,6 +616,20 @@
                 uploadButton.textContent = "Upload Voice";
                 uploadButton.classList.remove("bg-gray-600", "cursor-not-allowed");
                 uploadButton.classList.add("bg-blue-600", "hover:bg-blue-700");
+            }
+        }
+
+        // Download Model/Config File
+        function downloadModel(url) {
+            // Check if button is disabled (for installed voices)
+            if (event && event.target && event.target.disabled) {
+                return;
+            }
+            
+            if (url && url !== 'undefined' && url !== 'null') {
+                window.open(url, "_blank");
+            } else {
+                showToast('Download URL not available', 'error');
             }
         }
 
@@ -712,13 +757,6 @@
             }
         }
 
-        // Show Marketplace Error
-        function showMarketplaceError() {
-            document.getElementById('marketplaceLoading').classList.add('hidden');
-            document.getElementById('marketplaceError').classList.remove('hidden');
-            document.getElementById('marketplaceContainer').classList.add('hidden');
-        }
-
         // Load More Voices (Lazy Loading)
         function loadMoreVoices() {
             const startIndex = currentPage * VOICES_PER_PAGE;
@@ -811,17 +849,54 @@
             return card;
         }
 
-        // Download Model/Config File
-        function downloadModel(url) {
-            // Check if button is disabled (for installed voices)
-            if (event && event.target && event.target.disabled) {
+        // Edit Voice Functions
+        let selectedVoice = '';
+        
+        function editVoice(name, category) {
+            selectedVoice = name;
+            document.getElementById("editName").value = name;
+            document.getElementById("editCategory").value = category;
+            document.getElementById("editModal").style.display = "flex";
+        }
+        
+        function closeEditModal() {
+            document.getElementById("editModal").style.display = "none";
+            selectedVoice = '';
+        }
+        
+        async function saveVoiceEdit() {
+            const newName = document.getElementById("editName").value;
+            const category = document.getElementById("editCategory").value;
+            
+            if (!newName || !category) {
+                showToast('Please fill in all fields', 'error');
                 return;
             }
             
-            if (url && url !== 'undefined' && url !== 'null') {
-                window.open(url, "_blank");
-            } else {
-                showToast('Download URL not available', 'error');
+            try {
+                const res = await fetch(`${API_BASE}/admin/edit_voice`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        old_name: selectedVoice,
+                        new_name: newName,
+                        category: category
+                    })
+                });
+                
+                if (res.ok) {
+                    showToast('Voice updated successfully!', 'success');
+                    closeEditModal();
+                    await loadVoices();
+                } else {
+                    const error = await res.json().catch(() => ({}));
+                    handleApiError(res, { message: error.detail || 'Update failed' });
+                }
+            } catch (err) {
+                handleApiError(null, err);
             }
         }
 
