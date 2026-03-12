@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piper TTS Admin Dashboard</title>
+    <link rel="icon" href="data:,">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #0f172a; }
+        .sidebar { transition: transform 0.3s; }
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+        }
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="text-gray-100">
+    <!-- Login Panel -->
+    <div id="loginPanel" class="hidden min-h-screen flex items-center justify-center bg-slate-900">
+        <div class="bg-slate-800 p-8 rounded-lg shadow-xl w-96">
+            <h2 class="text-2xl font-bold mb-6 text-center">Piper TTS Admin</h2>
+            <form id="loginForm">
+                <input type="text" id="username" placeholder="Username" class="w-full p-3 mb-4 bg-slate-700 rounded" required>
+                <input type="password" id="password" placeholder="Password" class="w-full p-3 mb-4 bg-slate-700 rounded" required>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded font-semibold">Login</button>
+            </form>
+            <div id="loginError" class="mt-4 text-red-500 text-sm hidden"></div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="hidden">
+        <!-- Sidebar -->
+        <aside class="sidebar fixed left-0 top-0 h-full w-64 bg-slate-800 p-4 z-50">
+            <h1 class="text-xl font-bold mb-8">Piper TTS</h1>
+            <nav>
+                <a href="#" data-section="overview" class="nav-link block p-3 mb-2 rounded hover:bg-slate-700 bg-slate-700">Dashboard</a>
+                <a href="#" data-section="voices" class="nav-link block p-3 mb-2 rounded hover:bg-slate-700">Voices</a>
+                <a href="#" data-section="api-tester" class="nav-link block p-3 mb-2 rounded hover:bg-slate-700">API Tester</a>
+                <a href="#" data-section="analytics" class="nav-link block p-3 mb-2 rounded hover:bg-slate-700">Analytics</a>
+                <a href="#" data-section="system" class="nav-link block p-3 mb-2 rounded hover:bg-slate-700">System</a>
+                <a href="#" id="logoutBtn" class="block p-3 mb-2 rounded hover:bg-red-700 bg-red-600 mt-8">Logout</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="ml-64 p-8">
+            <!-- Dashboard Overview -->
+            <section id="overview" class="section">
+                <h2 class="text-3xl font-bold mb-6">Dashboard Overview</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <div class="text-gray-400 text-sm">Server Status</div>
+                        <div id="serverStatus" class="text-2xl font-bold text-green-500">Online</div>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <div class="text-gray-400 text-sm">CPU Usage</div>
+                        <div id="cpuUsage" class="text-2xl font-bold">0%</div>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <div class="text-gray-400 text-sm">Memory Usage</div>
+                        <div id="memoryUsage" class="text-2xl font-bold">0%</div>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <div class="text-gray-400 text-sm">Requests Today</div>
+                        <div id="requestsToday" class="text-2xl font-bold">0</div>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <div class="text-gray-400 text-sm">Voices Loaded</div>
+                        <div id="voicesLoaded" class="text-2xl font-bold">0</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Voice Management -->
+            <section id="voices" class="section hidden">
+                <h2 class="text-3xl font-bold mb-6">Voice Management</h2>
+                
+                <!-- Voice Tabs -->
+                <div class="mb-6">
+                    <div class="flex border-b border-slate-700">
+                        <button class="voice-tab px-6 py-3 font-semibold border-b-2 border-blue-500 text-blue-500" data-tab="installed">Installed Voices</button>
+                        <button class="voice-tab px-6 py-3 font-semibold text-gray-400 hover:text-white" data-tab="upload">Upload Voice</button>
+                        <button class="voice-tab px-6 py-3 font-semibold text-gray-400 hover:text-white" data-tab="marketplace">Marketplace</button>
+                    </div>
+                </div>
+
+                <!-- Installed Voices Tab -->
+                <div id="installed-tab" class="voice-tab-content">
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b border-slate-700">
+                                        <th class="text-left p-3">Voice Name</th>
+                                        <th class="text-left p-3">Status</th>
+                                        <th class="text-left p-3">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="voicesTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Voice Tab -->
+                <div id="upload-tab" class="voice-tab-content hidden">
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <form id="uploadVoiceForm" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Voice Name</label>
+                                <input id="voiceName" type="text" placeholder="Voice Name" class="w-full p-3 bg-slate-700 rounded" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Upload .onnx Model</label>
+                                <input id="modelFile" type="file" accept=".onnx" class="w-full p-3 bg-slate-700 rounded" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Upload .onnx.json Config</label>
+                                <input id="configFile" type="file" accept=".json" class="w-full p-3 bg-slate-700 rounded" required>
+                            </div>
+                            
+                            <!-- Upload Progress -->
+                            <div id="uploadProgress" class="hidden">
+                                <div class="text-center mb-2">
+                                    <span class="text-blue-400 font-semibold">Uploading Voice...</span>
+                                </div>
+                                <div class="w-full bg-gray-700 rounded-full h-4 mb-2">
+                                    <div id="uploadProgressBar" class="bg-blue-500 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                                <div class="text-center">
+                                    <span id="uploadProgressText" class="text-sm text-gray-400">0%</span>
+                                </div>
+                            </div>
+                            
+                            <button type="button" onclick="uploadVoice()" id="uploadButton" class="w-full bg-blue-600 hover:bg-blue-700 p-3 rounded font-semibold">Upload Voice</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Marketplace Tab -->
+                <div id="marketplace-tab" class="voice-tab-content hidden">
+                    <!-- Marketplace Header -->
+                    <div class="mb-6">
+                        <h3 class="text-2xl font-bold mb-2">Voice Marketplace</h3>
+                        <p class="text-gray-400" id="marketplaceCount">Loading voices...</p>
+                    </div>
+
+                    <!-- Filter Bar -->
+                    <div class="bg-slate-800 p-4 rounded-lg mb-6">
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="flex-1">
+                                <input type="text" id="voiceSearch" placeholder="Search voices..." class="w-full p-3 bg-slate-700 rounded-lg">
+                            </div>
+                            <div class="flex gap-4">
+                                <select id="sortRating" class="p-3 bg-slate-700 rounded-lg">
+                                    <option value="">Rating ▼</option>
+                                    <option value="high">Highest Rated</option>
+                                    <option value="low">Lowest Rated</option>
+                                </select>
+                                <select id="sortSize" class="p-3 bg-slate-700 rounded-lg">
+                                    <option value="">Model Size ▼</option>
+                                    <option value="small">Smallest First</option>
+                                    <option value="large">Largest First</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="marketplaceLoading" class="text-center py-12">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                        <p class="text-gray-400">Loading voices...</p>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="marketplaceError" class="hidden bg-red-900/20 border border-red-500 rounded-lg p-6 text-center">
+                        <h4 class="text-red-400 font-bold mb-2">Marketplace Unavailable</h4>
+                        <p class="text-gray-400">Server connection error. Please try again later.</p>
+                        <button onclick="loadMarketplace()" class="mt-4 bg-red-600 hover:bg-red-700 px-4 py-2 rounded">Retry</button>
+                    </div>
+
+                    <!-- Marketplace Grid -->
+                    <div id="marketplaceContainer" class="max-h-[75vh] overflow-y-auto hidden">
+                        <div id="marketplaceVoices" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"></div>
+                        <div id="loadMoreContainer" class="text-center py-6 hidden">
+                            <button id="loadMoreBtn" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold">Load More Voices</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- API Tester -->
+            <section id="api-tester" class="section hidden">
+                <h2 class="text-3xl font-bold mb-6">API Testing Panel</h2>
+                <div class="bg-slate-800 p-6 rounded-lg">
+                    <textarea id="text" placeholder="Enter text to convert to speech..." class="w-full p-3 bg-slate-700 rounded mb-4 h-32"></textarea>
+                    <select id="voice" class="w-full p-3 bg-slate-700 rounded mb-4">
+                        <option value="">Select Voice</option>
+                    </select>
+                    <button onclick="handleGenerateVoice()" class="bg-blue-600 hover:bg-blue-700 p-3 rounded font-semibold w-full mb-4">Generate Voice</button>
+                    <audio id="audioPlayer" controls class="w-full hidden"></audio>
+                    <div id="ttsError" class="text-red-500 mt-4 hidden"></div>
+                </div>
+            </section>
+
+            <!-- Analytics -->
+            <section id="analytics" class="section hidden">
+                <h2 class="text-3xl font-bold mb-6">Analytics</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <h3 class="text-xl font-bold mb-4">Requests Per Hour</h3>
+                        <canvas id="requestsChart"></canvas>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <h3 class="text-xl font-bold mb-4">Voice Usage</h3>
+                        <canvas id="voiceUsageChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- System Monitor -->
+            <section id="system" class="section hidden">
+                <h2 class="text-3xl font-bold mb-6">System Monitoring</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <h3 class="text-xl font-bold mb-4">CPU Usage</h3>
+                        <div class="text-4xl font-bold text-blue-500" id="systemCpu">0%</div>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <h3 class="text-xl font-bold mb-4">Memory Usage</h3>
+                        <div class="text-4xl font-bold text-green-500" id="systemMemory">0%</div>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-lg">
+                        <h3 class="text-xl font-bold mb-4">Server Uptime</h3>
+                        <div class="text-4xl font-bold text-purple-500" id="systemUptime">0h</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Audio Player -->
+        <audio id="audioPlayer" controls class="hidden"></audio>
+        
+        <!-- Toast Notifications -->
+        <div id="toast" class="fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg hidden z-50">
+            <span id="toastMessage"></span>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://codvoice.codelessai.in';
+        let token = localStorage.getItem('token');
+        let requestsChart, voiceUsageChart;
+
+        // Toast Notifications
+        function showToast(message, type = 'error') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
+                type === 'error' ? 'bg-red-600' : type === 'success' ? 'bg-green-600' : 'bg-blue-600'
+            } text-white`;
+            
+            toastMessage.textContent = message;
+            toast.classList.remove('hidden');
+            
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Handle API Errors
+        function handleApiError(response, error) {
+            if (response?.status === 401) {
+                showToast('Session expired. Please login again.');
+                localStorage.removeItem('token');
+                token = null;
+                checkAuth();
+            } else if (response?.status === 500) {
+                showToast('Server error occurred');
+            } else if (error?.message?.includes('fetch')) {
+                showToast('Server offline');
+            } else {
+                showToast(error?.message || 'An error occurred');
+            }
+        }
+
+        // Auth Check
+        function checkAuth() {
+            if (token) {
+                document.getElementById('loginPanel').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                loadDashboard();
+            } else {
+                document.getElementById('loginPanel').classList.remove('hidden');
+                document.getElementById('dashboard').classList.add('hidden');
+            }
+        }
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            console.log('Login attempt:', { username, password }); // Debug log
+            
+            try {
+                const res = await fetch(`${API_BASE}/admin/login`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        username: username, 
+                        password: password 
+                    })
+                });
+                
+                console.log('Response status:', res.status); // Debug log
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log('Login success:', data); // Debug log
+                    
+                    // Backend returns: {"access_token": "JWT_TOKEN"}
+                    token = data.access_token;
+                    localStorage.setItem('token', data.access_token);
+                    
+                    errorDiv.classList.add('hidden');
+                    checkAuth();
+                } else {
+                    const errorText = await res.text();
+                    console.log('Login error response:', errorText); // Debug log
+                    
+                    let errorData;
+                    try {
+                        errorData = JSON.parse(errorText);
+                    } catch {
+                        errorData = { detail: errorText };
+                    }
+                    
+                    if (res.status === 422) {
+                        errorDiv.innerHTML = `Validation Error (422):<br>${errorData.detail || JSON.stringify(errorData)}<br><br>Expected format: {"username": "admin", "password": "admin123"}`;
+                    } else {
+                        errorDiv.textContent = errorData.detail || `Error ${res.status}: ${res.statusText}`;
+                    }
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error('Login error:', err);
+                if (err.message.includes('CORS') || err.name === 'TypeError') {
+                    errorDiv.innerHTML = 'CORS Error: Backend must enable CORS.<br>Add this to your FastAPI:<br><code class="text-xs">app.add_middleware(CORSMiddleware, allow_origins=["*"])</code>';
+                } else {
+                    errorDiv.textContent = 'Connection error: ' + err.message;
+                }
+                errorDiv.classList.remove('hidden');
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('token');
+            token = null;
+            checkAuth();
+        });
+
+        // Navigation
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('bg-slate-700'));
+                link.classList.add('bg-slate-700');
+                
+                document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
+                document.getElementById(link.dataset.section).classList.remove('hidden');
+            });
+        });
+
+        // Voice Tab Navigation
+        document.querySelectorAll('.voice-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.voice-tab').forEach(t => {
+                    t.classList.remove('border-blue-500', 'text-blue-500');
+                    t.classList.add('text-gray-400');
+                });
+                tab.classList.add('border-blue-500', 'text-blue-500');
+                tab.classList.remove('text-gray-400');
+                
+                document.querySelectorAll('.voice-tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById(tab.dataset.tab + '-tab').classList.remove('hidden');
+                
+                if (tab.dataset.tab === 'marketplace') {
+                    loadMarketplace();
+                    // Initialize marketplace events after a short delay
+                    setTimeout(initMarketplaceEvents, 100);
+                }
+            });
+        });
+
+        // Load Dashboard Data
+        async function loadDashboard() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/status`, {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById("serverStatus").innerText = data.status;
+                } else {
+                    handleApiError(response);
+                }
+                
+                await loadVoices();
+                await loadStats();
+                initCharts();
+            } catch (error) {
+                handleApiError(null, error);
+            }
+        }
+
+
+
+        // Load Voices
+        async function loadVoices() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/voices`, {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const voices = data.voices || [];
+
+                    const table = document.getElementById("voicesTable");
+                    table.innerHTML = voices.map(v => `
+                        <tr class="border-b border-slate-700">
+                            <td class="p-3">${v}</td>
+                            <td class="p-3"><span class="text-green-500">Loaded</span></td>
+                            <td class="p-3">
+                                <button onclick="testVoice('${v}')" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm mr-2">Test</button>
+                                <button onclick="deleteVoice('${v}')" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm">Delete</button>
+                            </td>
+                        </tr>
+                    `).join("");
+
+                    // Update voice selector dropdown for API tester
+                    const selector = document.getElementById('voice');
+                    selector.innerHTML = '<option value="">Select Voice</option>' + 
+                        voices.map(v => `<option value="${v}">${v}</option>`).join('');
+                        
+                    // Update voices loaded count
+                    document.getElementById('voicesLoaded').textContent = voices.length;
+                } else {
+                    handleApiError(response);
+                }
+            } catch (error) {
+                handleApiError(null, error);
+            }
+        }
+
+        // Load Stats
+        async function loadStats(){
+            try {
+                const response = await fetch(`${API_BASE}/admin/stats`, {
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById("cpuUsage").innerText = data.cpu + "%";
+                    document.getElementById("memoryUsage").innerText = data.memory + "%";
+                } else {
+                    handleApiError(response);
+                }
+            } catch (error) {
+                handleApiError(null, error);
+            }
+        }
+
+        // Upload Voice with Progress Bar
+        async function uploadVoice(){
+            const voiceName = document.getElementById("voiceName").value;
+            const modelFile = document.getElementById("modelFile").files[0];
+            const configFile = document.getElementById("configFile").files[0];
+
+            if (!voiceName || !modelFile || !configFile) {
+                alert("Please provide voice name and both files");
+                return;
+            }
+
+            const formData = new FormData();
+
+            // IMPORTANT: field names must match FastAPI
+            formData.append("voice_name", voiceName);
+            formData.append("model", modelFile);
+            formData.append("config", configFile);
+
+            // Show progress bar and disable button
+            const progressContainer = document.getElementById("uploadProgress");
+            const progressBar = document.getElementById("uploadProgressBar");
+            const progressText = document.getElementById("uploadProgressText");
+            const uploadButton = document.getElementById("uploadButton");
+            
+            progressContainer.classList.remove("hidden");
+            uploadButton.disabled = true;
+            uploadButton.textContent = "Uploading...";
+            uploadButton.classList.add("bg-gray-600", "cursor-not-allowed");
+            uploadButton.classList.remove("bg-blue-600", "hover:bg-blue-700");
+
+            // Simulate progress for fetch (since fetch doesn't support upload progress)
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 10 + 5; // Random increment 5-15%
+                if (progress > 90) progress = 90; // Stop at 90% until completion
+                
+                progressBar.style.width = Math.floor(progress) + '%';
+                progressText.textContent = Math.floor(progress) + '%';
+            }, 200);
+
+            try {
+                const response = await fetch(API_BASE + "/admin/upload_voice", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + localStorage.getItem("token")
+                    },
+                    body: formData
+                });
+
+                // Clear progress simulation
+                clearInterval(progressInterval);
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    console.error(text);
+                    throw new Error("Upload failed");
+                }
+
+                // Complete progress
+                progressBar.style.width = '100%';
+                progressText.textContent = '100%';
+
+                setTimeout(() => {
+                    alert("Voice uploaded successfully");
+                    
+                    // Clear form and hide progress
+                    document.getElementById("voiceName").value = "";
+                    document.getElementById("modelFile").value = "";
+                    document.getElementById("configFile").value = "";
+                    progressContainer.classList.add("hidden");
+                    
+                    // Reset button
+                    uploadButton.disabled = false;
+                    uploadButton.textContent = "Upload Voice";
+                    uploadButton.classList.remove("bg-gray-600", "cursor-not-allowed");
+                    uploadButton.classList.add("bg-blue-600", "hover:bg-blue-700");
+                    
+                    // Refresh voices list
+                    loadVoices();
+                }, 500);
+
+            } catch (error) {
+                // Clear progress simulation
+                clearInterval(progressInterval);
+                
+                console.error("Upload error:", error);
+                alert("Upload failed");
+                
+                // Hide progress and reset button
+                progressContainer.classList.add("hidden");
+                uploadButton.disabled = false;
+                uploadButton.textContent = "Upload Voice";
+                uploadButton.classList.remove("bg-gray-600", "cursor-not-allowed");
+                uploadButton.classList.add("bg-blue-600", "hover:bg-blue-700");
+            }
+        }
+
+        // Test Voice
+        function testVoice(name){
+            const text = `Hello, this is the ${name} voice speaking.`;
+            generateVoice(text, name);
+        }
+
+        // Delete Voice
+        window.deleteVoice = async (voiceName) => {
+            if (!confirm(`Delete voice: ${voiceName}?`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/admin/delete_voice?voice=${voiceName}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                if (res.ok) {
+                    showToast('Voice deleted', 'success');
+                    await loadVoices();
+                } else {
+                    const error = await res.json().catch(() => ({}));
+                    handleApiError(res, { message: error.detail || 'Delete failed' });
+                }
+            } catch (err) {
+                handleApiError(null, err);
+            }
+        };
+
+        // Handle Generate Voice Button Click
+        async function handleGenerateVoice(){
+            const text = document.getElementById("text").value;
+            const voice = document.getElementById("voice").value;
+            
+            if(!text || !voice){
+                showToast("Please enter text and select a voice");
+                return;
+            }
+            
+            try {
+                await generateVoice(text, voice);
+                document.getElementById("audioPlayer").classList.remove('hidden');
+            } catch (error) {
+                handleApiError(null, error);
+            }
+        }
+
+        // Generate Voice - API Tester
+        async function generateVoice(text, voice){
+            const response = await fetch(
+                `${API_BASE}/tts?text=${encodeURIComponent(text)}&voice=${voice}`,
+                { method: "POST" }
+            );
+
+            if(!response.ok){
+                throw new Error("TTS request failed");
+            }
+
+            const blob = await response.blob();
+            const audioURL = URL.createObjectURL(blob);
+            const audioPlayer = document.getElementById("audioPlayer");
+            audioPlayer.src = audioURL;
+            audioPlayer.play();
+        }
+
+        // Marketplace Variables
+        let allVoices = [];
+        let displayedVoices = [];
+        let currentPage = 0;
+        const VOICES_PER_PAGE = 50;
+        let installProgress = {};
+
+        // Load Marketplace
+        async function loadMarketplace() {
+            const loading = document.getElementById('marketplaceLoading');
+            const error = document.getElementById('marketplaceError');
+            const container = document.getElementById('marketplaceContainer');
+            const count = document.getElementById('marketplaceCount');
+            
+            loading.classList.remove('hidden');
+            error.classList.add('hidden');
+            container.classList.add('hidden');
+            
+            try {
+                const res = await fetch(`${API_BASE}/admin/voice_marketplace`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    allVoices = data.voices || [];
+                    
+                    // Update header count
+                    count.textContent = `${allVoices.length} Voices Available`;
+                    
+                    // Reset pagination
+                    currentPage = 0;
+                    displayedVoices = [];
+                    
+                    // Show container and load first batch
+                    loading.classList.add('hidden');
+                    container.classList.remove('hidden');
+                    
+                    // Use renderMarketplace for initial load to ensure clean slate
+                    const firstBatch = allVoices.slice(0, VOICES_PER_PAGE);
+                    renderMarketplace(firstBatch);
+                    displayedVoices = [...firstBatch];
+                    currentPage = 1;
+                    
+                    // Show/hide load more button
+                    const loadMoreContainer = document.getElementById('loadMoreContainer');
+                    const hasMore = VOICES_PER_PAGE < allVoices.length;
+                    
+                    if (hasMore) {
+                        loadMoreContainer.classList.remove('hidden');
+                    } else {
+                        loadMoreContainer.classList.add('hidden');
+                    }
+                } else {
+                    handleApiError(res);
+                    showMarketplaceError();
+                }
+            } catch (err) {
+                handleApiError(null, err);
+                showMarketplaceError();
+            }
+        }
+
+        // Show Marketplace Error
+        function showMarketplaceError() {
+            document.getElementById('marketplaceLoading').classList.add('hidden');
+            document.getElementById('marketplaceError').classList.remove('hidden');
+            document.getElementById('marketplaceContainer').classList.add('hidden');
+        }
+
+        // Load More Voices (Lazy Loading)
+        function loadMoreVoices() {
+            const startIndex = currentPage * VOICES_PER_PAGE;
+            const endIndex = startIndex + VOICES_PER_PAGE;
+            const newVoices = allVoices.slice(startIndex, endIndex);
+            
+            if (newVoices.length > 0) {
+                displayedVoices = [...displayedVoices, ...newVoices];
+                renderVoiceCards(newVoices, true); // append = true
+                currentPage++;
+            }
+            
+            // Show/hide load more button
+            const loadMoreContainer = document.getElementById('loadMoreContainer');
+            const hasMore = endIndex < allVoices.length;
+            
+            if (hasMore) {
+                loadMoreContainer.classList.remove('hidden');
+            } else {
+                loadMoreContainer.classList.add('hidden');
+            }
+        }
+
+        // Render Voice Cards
+        function renderVoiceCards(voices, append = false) {
+            const container = document.getElementById('marketplaceVoices');
+            
+            // CLEAR OLD CONTENT (unless appending)
+            if (!append) {
+                container.innerHTML = '';
+            }
+            
+            voices.forEach(voice => {
+                const card = renderVoiceCard(voice);
+                container.appendChild(card);
+            });
+        }
+
+        // Main Marketplace Rendering Function
+        function renderMarketplace(voices) {
+            const container = document.getElementById('marketplaceVoices');
+            
+            // CLEAR OLD CONTENT
+            container.innerHTML = '';
+            
+            voices.forEach(v => {
+                const card = renderVoiceCard(v);
+                container.appendChild(card);
+            });
+        }
+
+        // Render Individual Voice Card
+        function renderVoiceCard(voice) {
+            const card = document.createElement('div');
+            card.className = 'bg-slate-800 hover:bg-slate-700 rounded-xl shadow-lg p-5 transition-all duration-200 hover:shadow-xl hover:-translate-y-1';
+            
+            const isInstalled = voice.installed;
+            const isInstalling = installProgress[voice.name];
+            
+            card.innerHTML = `
+                <div class="mb-4">
+                    <h4 class="text-lg font-bold text-white mb-1">${voice.name}</h4>
+                    <p class="text-gray-400 text-sm">${voice.gender} • ${voice.language_name || voice.language}</p>
+                </div>
+                
+                <p class="text-gray-300 text-sm mb-4 line-clamp-2">${voice.description}</p>
+                
+                <div class="space-y-2 mb-4">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-400">⭐ Rating</span>
+                        <span class="text-yellow-400 font-semibold">${voice.rating || 'N/A'}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-400">Downloads</span>
+                        <span class="text-blue-400 font-semibold">${formatDownloads(voice.downloads)}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-400">Model Size</span>
+                        <span class="text-green-400 font-semibold">${voice.size || 'N/A'}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-400">Quality</span>
+                        <span class="text-purple-400 font-semibold capitalize">${voice.quality || 'N/A'}</span>
+                    </div>
+                </div>
+                
+                ${voice.tags && voice.tags.length > 0 ? `
+                    <div class="mb-4">
+                        <div class="text-xs text-gray-400 mb-2">Tags</div>
+                        <div class="flex flex-wrap gap-1">
+                            ${voice.tags.map(tag => `<span class="bg-slate-700 text-gray-300 px-2 py-1 rounded text-xs">${tag}</span>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div class="flex gap-2">
+                    ${voice.sample ? `
+                        <button onclick="previewVoice('${voice.sample}')" class="flex-1 bg-gray-600 hover:bg-gray-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                            ▶ Preview
+                        </button>
+                    ` : ''}
+                    
+                    <div class="flex-1" id="install-${voice.name}">
+                        ${renderInstallButton(voice.name, isInstalled, isInstalling)}
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // Render Install Button
+        function renderInstallButton(voiceName, isInstalled, isInstalling) {
+            if (isInstalled) {
+                return '<button class="w-full bg-gray-600 cursor-not-allowed px-3 py-2 rounded text-sm font-semibold" disabled>Installed</button>';
+            }
+            
+            if (isInstalling) {
+                const progress = installProgress[voiceName] || 0;
+                return `
+                    <div class="text-center">
+                        <div class="text-xs text-gray-400 mb-1">Installing...</div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1">${progress}%</div>
+                    </div>
+                `;
+            }
+            
+            return `<button onclick="installVoice('${voiceName}')" class="w-full bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded text-sm font-semibold transition-colors">Install</button>`;
+        }
+
+        // Format Downloads Count
+        function formatDownloads(downloads) {
+            if (!downloads) return 'N/A';
+            if (downloads >= 1000000) return (downloads / 1000000).toFixed(1) + 'M';
+            if (downloads >= 1000) return (downloads / 1000).toFixed(1) + 'k';
+            return downloads.toString();
+        }
+
+        // Preview Voice
+        function previewVoice(sampleUrl) {
+            try {
+                const audio = new Audio(sampleUrl);
+                audio.play().catch(err => {
+                    showToast('Preview failed: ' + err.message);
+                });
+            } catch (err) {
+                showToast('Preview not available');
+            }
+        }
+
+        // Install Voice
+        window.installVoice = async (voiceName) => {
+            // Prevent multiple installs
+            if (installProgress[voiceName]) return;
+            
+            // Initialize progress
+            installProgress[voiceName] = 0;
+            updateInstallButton(voiceName);
+            
+            try {
+                const res = await fetch(`${API_BASE}/admin/install_voice?name=${voiceName}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                
+                if (res.ok) {
+                    // Simulate progress animation
+                    await animateProgress(voiceName);
+                    
+                    // Mark as installed and refresh
+                    delete installProgress[voiceName];
+                    await loadVoices();
+                    await loadMarketplace();
+                    showToast('Voice installed successfully!', 'success');
+                } else {
+                    const error = await res.json().catch(() => ({}));
+                    delete installProgress[voiceName];
+                    updateInstallButton(voiceName);
+                    handleApiError(res, { message: error.detail || 'Install failed' });
+                }
+            } catch (err) {
+                delete installProgress[voiceName];
+                updateInstallButton(voiceName);
+                handleApiError(null, err);
+            }
+        };
+
+        // Animate Progress Bar
+        async function animateProgress(voiceName) {
+            return new Promise((resolve) => {
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += Math.random() * 15 + 5; // Random increment 5-20%
+                    
+                    if (progress >= 100) {
+                        progress = 100;
+                        installProgress[voiceName] = progress;
+                        updateInstallButton(voiceName);
+                        clearInterval(interval);
+                        
+                        // Small delay before completion
+                        setTimeout(resolve, 500);
+                    } else {
+                        installProgress[voiceName] = Math.floor(progress);
+                        updateInstallButton(voiceName);
+                    }
+                }, 200); // Update every 200ms
+            });
+        }
+
+        // Update Install Button
+        function updateInstallButton(voiceName) {
+            const buttonContainer = document.getElementById(`install-${voiceName}`);
+            if (!buttonContainer) return;
+            
+            const voice = allVoices.find(v => v.name === voiceName);
+            if (!voice) return;
+            
+            const isInstalled = voice.installed;
+            const isInstalling = installProgress[voiceName] !== undefined;
+            
+            buttonContainer.innerHTML = renderInstallButton(voiceName, isInstalled, isInstalling);
+        }
+
+        // Load More Button Event
+        function initLoadMoreButton() {
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            if (loadMoreBtn) {
+                loadMoreBtn.addEventListener('click', loadMoreVoices);
+            }
+        }
+
+        // Initialize Load More Button when DOM is ready
+        document.addEventListener('DOMContentLoaded', initLoadMoreButton);
+        
+        // Also initialize when marketplace loads
+        function initMarketplaceEvents() {
+            initLoadMoreButton();
+            initScrollLazyLoading();
+        }
+
+        // Scroll-based Lazy Loading
+        function initScrollLazyLoading() {
+            const container = document.getElementById('marketplaceContainer');
+            if (!container) return;
+            
+            container.addEventListener('scroll', () => {
+                const { scrollTop, scrollHeight, clientHeight } = container;
+                
+                // Load more when scrolled to 80% of container
+                if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+                    const hasMore = (currentPage * VOICES_PER_PAGE) < allVoices.length;
+                    if (hasMore && !document.getElementById('loadMoreContainer').classList.contains('hidden')) {
+                        loadMoreVoices();
+                    }
+                }
+            });
+        }
+
+        // Init Charts
+        function initCharts() {
+            const requestsCtx = document.getElementById('requestsChart').getContext('2d');
+            requestsChart = new Chart(requestsCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                    datasets: [{
+                        label: 'Requests',
+                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 100)),
+                        borderColor: 'rgb(59, 130, 246)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: '#fff' } } },
+                    scales: {
+                        y: { ticks: { color: '#fff' }, grid: { color: '#334155' } },
+                        x: { ticks: { color: '#fff' }, grid: { color: '#334155' } }
+                    }
+                }
+            });
+
+            const voiceCtx = document.getElementById('voiceUsageChart').getContext('2d');
+            voiceUsageChart = new Chart(voiceCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Voice 1', 'Voice 2', 'Voice 3'],
+                    datasets: [{
+                        data: [30, 50, 20],
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: '#fff' } } }
+                }
+            });
+        }
+
+        // Auto-refresh
+        setInterval(() => {
+            if (localStorage.getItem('token')) {
+                loadDashboard();
+            }
+        }, 30000);
+
+        // Init
+        checkAuth();
+    </script>
+</body>
+</html>
