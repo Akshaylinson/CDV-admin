@@ -655,7 +655,6 @@
         let displayedVoices = [];
         let currentPage = 0;
         const VOICES_PER_PAGE = 50;
-        let installProgress = {};
 
         // Load Marketplace
         async function loadMarketplace() {
@@ -776,9 +775,6 @@
             const card = document.createElement('div');
             card.className = 'bg-slate-800 hover:bg-slate-700 rounded-xl shadow-lg p-5 transition-all duration-200 hover:shadow-xl hover:-translate-y-1';
             
-            const isInstalled = voice.installed;
-            const isInstalling = installProgress[voice.name];
-            
             card.innerHTML = `
                 <div class="mb-4">
                     <h4 class="text-lg font-bold text-white mb-1">${voice.name}</h4>
@@ -815,15 +811,20 @@
                     </div>
                 ` : ''}
                 
-                <div class="flex gap-2">
+                <div class="space-y-2">
                     ${voice.sample ? `
-                        <button onclick="previewVoice('${voice.sample}')" class="flex-1 bg-gray-600 hover:bg-gray-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                        <button onclick="previewVoice('${voice.sample}')" class="w-full bg-gray-600 hover:bg-gray-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
                             ▶ Preview
                         </button>
                     ` : ''}
                     
-                    <div class="flex-1" id="install-${voice.name}">
-                        ${renderInstallButton(voice.name, isInstalled, isInstalling)}
+                    <div class="flex gap-2">
+                        <button onclick="downloadModel('${voice.name}')" class="flex-1 bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                            Download Model
+                        </button>
+                        <button onclick="downloadConfig('${voice.name}')" class="flex-1 bg-green-600 hover:bg-green-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                            Download Config
+                        </button>
                     </div>
                 </div>
             `;
@@ -831,27 +832,61 @@
             return card;
         }
 
-        // Render Install Button
-        function renderInstallButton(voiceName, isInstalled, isInstalling) {
-            if (isInstalled) {
-                return '<button class="w-full bg-gray-600 cursor-not-allowed px-3 py-2 rounded text-sm font-semibold" disabled>Installed</button>';
+        // Download Model File
+        window.downloadModel = async (voiceName) => {
+            try {
+                const res = await fetch(`${API_BASE}/admin/download_model?voice=${voiceName}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${voiceName}.onnx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showToast('Model downloaded successfully!', 'success');
+                } else {
+                    const error = await res.json().catch(() => ({}));
+                    handleApiError(res, { message: error.detail || 'Download failed' });
+                }
+            } catch (err) {
+                handleApiError(null, err);
             }
-            
-            if (isInstalling) {
-                const progress = installProgress[voiceName] || 0;
-                return `
-                    <div class="text-center">
-                        <div class="text-xs text-gray-400 mb-1">Installing...</div>
-                        <div class="w-full bg-gray-700 rounded-full h-2">
-                            <div class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: ${progress}%"></div>
-                        </div>
-                        <div class="text-xs text-gray-400 mt-1">${progress}%</div>
-                    </div>
-                `;
+        };
+
+        // Download Config File
+        window.downloadConfig = async (voiceName) => {
+            try {
+                const res = await fetch(`${API_BASE}/admin/download_config?voice=${voiceName}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${voiceName}.onnx.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showToast('Config downloaded successfully!', 'success');
+                } else {
+                    const error = await res.json().catch(() => ({}));
+                    handleApiError(res, { message: error.detail || 'Download failed' });
+                }
+            } catch (err) {
+                handleApiError(null, err);
             }
-            
-            return `<button onclick="installVoice('${voiceName}')" class="w-full bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded text-sm font-semibold transition-colors">Install</button>`;
-        }
+        };
 
         // Format Downloads Count
         function formatDownloads(downloads) {
@@ -873,79 +908,11 @@
             }
         }
 
-        // Install Voice
-        window.installVoice = async (voiceName) => {
-            // Prevent multiple installs
-            if (installProgress[voiceName]) return;
-            
-            // Initialize progress
-            installProgress[voiceName] = 0;
-            updateInstallButton(voiceName);
-            
-            try {
-                const res = await fetch(`${API_BASE}/admin/install_voice?name=${voiceName}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                
-                if (res.ok) {
-                    // Simulate progress animation
-                    await animateProgress(voiceName);
-                    
-                    // Mark as installed and refresh
-                    delete installProgress[voiceName];
-                    await loadVoices();
-                    await loadMarketplace();
-                    showToast('Voice installed successfully!', 'success');
-                } else {
-                    const error = await res.json().catch(() => ({}));
-                    delete installProgress[voiceName];
-                    updateInstallButton(voiceName);
-                    handleApiError(res, { message: error.detail || 'Install failed' });
-                }
-            } catch (err) {
-                delete installProgress[voiceName];
-                updateInstallButton(voiceName);
-                handleApiError(null, err);
-            }
-        };
 
-        // Animate Progress Bar
-        async function animateProgress(voiceName) {
-            return new Promise((resolve) => {
-                let progress = 0;
-                const interval = setInterval(() => {
-                    progress += Math.random() * 15 + 5; // Random increment 5-20%
-                    
-                    if (progress >= 100) {
-                        progress = 100;
-                        installProgress[voiceName] = progress;
-                        updateInstallButton(voiceName);
-                        clearInterval(interval);
-                        
-                        // Small delay before completion
-                        setTimeout(resolve, 500);
-                    } else {
-                        installProgress[voiceName] = Math.floor(progress);
-                        updateInstallButton(voiceName);
-                    }
-                }, 200); // Update every 200ms
-            });
-        }
 
-        // Update Install Button
-        function updateInstallButton(voiceName) {
-            const buttonContainer = document.getElementById(`install-${voiceName}`);
-            if (!buttonContainer) return;
-            
-            const voice = allVoices.find(v => v.name === voiceName);
-            if (!voice) return;
-            
-            const isInstalled = voice.installed;
-            const isInstalling = installProgress[voiceName] !== undefined;
-            
-            buttonContainer.innerHTML = renderInstallButton(voiceName, isInstalled, isInstalling);
-        }
+
+
+
 
         // Load More Button Event
         function initLoadMoreButton() {
