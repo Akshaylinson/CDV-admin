@@ -773,60 +773,39 @@
         // Render Individual Voice Card
         function renderVoiceCard(voice) {
             const card = document.createElement('div');
-            card.className = 'bg-slate-800 hover:bg-slate-700 rounded-xl shadow-lg p-5 transition-all duration-200 hover:shadow-xl hover:-translate-y-1';
+            card.className = 'voice-card bg-slate-800 hover:bg-slate-700 rounded-xl shadow-lg p-5 transition-all duration-200 hover:shadow-xl hover:-translate-y-1';
+            
+            const isInstalled = voice.installed;
             
             card.innerHTML = `
-                <div class="mb-4">
-                    <h4 class="text-lg font-bold text-white mb-1">${voice.name}</h4>
-                    <p class="text-gray-400 text-sm">${voice.gender} • ${voice.language_name || voice.language}</p>
-                </div>
+                <h3 class="text-lg font-bold text-white mb-1">${voice.name}</h3>
+                <p class="text-gray-400 text-sm mb-4">${voice.language_name}</p>
                 
                 <p class="text-gray-300 text-sm mb-4 line-clamp-2">${voice.description}</p>
                 
-                <div class="space-y-2 mb-4">
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-400">⭐ Rating</span>
-                        <span class="text-yellow-400 font-semibold">${voice.rating || 'N/A'}</span>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-400">Downloads</span>
-                        <span class="text-blue-400 font-semibold">${formatDownloads(voice.downloads)}</span>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-400">Model Size</span>
-                        <span class="text-green-400 font-semibold">${voice.size || 'N/A'}</span>
-                    </div>
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-gray-400">Quality</span>
-                        <span class="text-purple-400 font-semibold capitalize">${voice.quality || 'N/A'}</span>
-                    </div>
+                <div class="meta text-sm text-gray-400 mb-4 space-y-1">
+                    <div>⭐ ${voice.rating}</div>
+                    <div>Downloads: ${voice.downloads}</div>
+                    <div>Size: ${voice.size}</div>
                 </div>
                 
-                ${voice.tags && voice.tags.length > 0 ? `
-                    <div class="mb-4">
-                        <div class="text-xs text-gray-400 mb-2">Tags</div>
-                        <div class="flex flex-wrap gap-1">
-                            ${voice.tags.map(tag => `<span class="bg-slate-700 text-gray-300 px-2 py-1 rounded text-xs">${tag}</span>`).join('')}
-                        </div>
+                ${isInstalled ? `
+                    <div class="text-green-500 font-semibold text-sm mb-4">
+                        ✓ Installed
                     </div>
                 ` : ''}
                 
-                <div class="space-y-2">
-                    ${voice.sample ? `
-                        <button onclick="previewVoice('${voice.sample}')" class="w-full bg-gray-600 hover:bg-gray-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
-                            ▶ Preview
-                        </button>
-                    ` : ''}
-                    
-                    <div class="flex gap-2">
-                        <button onclick="downloadModel('${voice.onnx_url}')" class="flex-1 bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
-                            Download Model
-                        </button>
-                        <button onclick="downloadModel('${voice.json_url}')" class="flex-1 bg-green-600 hover:bg-green-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
-                            Download Config
-                        </button>
-                    </div>
-                </div>
+                <button onclick="downloadModel('${voice.onnx_url}')" class="w-full px-3 py-2 rounded text-sm font-semibold transition-colors mb-2 ${
+                    isInstalled ? 'bg-gray-600 cursor-not-allowed text-gray-400' : 'bg-blue-600 hover:bg-blue-500'
+                }" ${isInstalled ? 'disabled' : ''}>
+                    Download ONNX
+                </button>
+                
+                <button onclick="downloadModel('${voice.json_url}')" class="w-full px-3 py-2 rounded text-sm font-semibold transition-colors ${
+                    isInstalled ? 'bg-gray-600 cursor-not-allowed text-gray-400' : 'bg-green-600 hover:bg-green-500'
+                }" ${isInstalled ? 'disabled' : ''}>
+                    Download Config
+                </button>
             `;
             
             return card;
@@ -834,6 +813,11 @@
 
         // Download Model/Config File
         function downloadModel(url) {
+            // Check if button is disabled (for installed voices)
+            if (event && event.target && event.target.disabled) {
+                return;
+            }
+            
             if (url && url !== 'undefined' && url !== 'null') {
                 window.open(url, "_blank");
             } else {
