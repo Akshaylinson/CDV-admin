@@ -819,10 +819,10 @@
                     ` : ''}
                     
                     <div class="flex gap-2">
-                        <button onclick="downloadModel('${voice.name}')" class="flex-1 bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                        <button onclick="downloadModel('${voice.onnx_url}')" class="flex-1 bg-blue-600 hover:bg-blue-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
                             Download Model
                         </button>
-                        <button onclick="downloadConfig('${voice.name}')" class="flex-1 bg-green-600 hover:bg-green-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
+                        <button onclick="downloadModel('${voice.json_url}')" class="flex-1 bg-green-600 hover:bg-green-500 px-3 py-2 rounded text-sm font-semibold transition-colors">
                             Download Config
                         </button>
                     </div>
@@ -832,61 +832,14 @@
             return card;
         }
 
-        // Download Model File
-        window.downloadModel = async (voiceName) => {
-            try {
-                const res = await fetch(`${API_BASE}/admin/download_model?voice=${voiceName}`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${voiceName}.onnx`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    showToast('Model downloaded successfully!', 'success');
-                } else {
-                    const error = await res.json().catch(() => ({}));
-                    handleApiError(res, { message: error.detail || 'Download failed' });
-                }
-            } catch (err) {
-                handleApiError(null, err);
+        // Download Model/Config File
+        function downloadModel(url) {
+            if (url && url !== 'undefined' && url !== 'null') {
+                window.open(url, "_blank");
+            } else {
+                showToast('Download URL not available', 'error');
             }
-        };
-
-        // Download Config File
-        window.downloadConfig = async (voiceName) => {
-            try {
-                const res = await fetch(`${API_BASE}/admin/download_config?voice=${voiceName}`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-                
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${voiceName}.onnx.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    showToast('Config downloaded successfully!', 'success');
-                } else {
-                    const error = await res.json().catch(() => ({}));
-                    handleApiError(res, { message: error.detail || 'Download failed' });
-                }
-            } catch (err) {
-                handleApiError(null, err);
-            }
-        };
+        }
 
         // Format Downloads Count
         function formatDownloads(downloads) {
