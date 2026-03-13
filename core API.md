@@ -43,6 +43,8 @@ Content-Length: 234001
 
 The frontend will play this audio directly.
 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 2️⃣ Frontend Audio Playback Example
 
 Example JavaScript client:

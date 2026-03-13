@@ -324,16 +324,14 @@
             console.log('Login attempt:', { username, password }); // Debug log
             
             try {
-                const res = await fetch(`${API_BASE}/admin/login`, {
+                // Send credentials as query parameters
+                const loginUrl = `${API_BASE}/admin/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+                
+                const res = await fetch(loginUrl, {
                     method: 'POST',
                     headers: { 
-                        'Content-Type': 'application/json',
                         'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        username: username, 
-                        password: password 
-                    })
+                    }
                 });
                 
                 console.log('Response status:', res.status); // Debug log
@@ -360,7 +358,7 @@
                     }
                     
                     if (res.status === 422) {
-                        errorDiv.innerHTML = `Validation Error (422):<br>${errorData.detail || JSON.stringify(errorData)}<br><br>Expected format: {"username": "admin", "password": "admin123"}`;
+                        errorDiv.innerHTML = `Validation Error (422):<br>${errorData.detail || JSON.stringify(errorData)}<br><br>Expected format: Query parameters ?username=admin&password=admin123`;
                     } else {
                         errorDiv.textContent = errorData.detail || `Error ${res.status}: ${res.statusText}`;
                     }
@@ -561,12 +559,17 @@
                     throw new Error("Upload failed");
                 }
 
+                // Parse success response
+                const data = await response.json();
+                console.log('Upload success:', data);
+
                 // Complete progress
                 progressBar.style.width = '100%';
                 progressText.textContent = '100%';
 
                 setTimeout(() => {
-                    alert("Voice uploaded successfully");
+                    // Show success message from backend
+                    alert(data.message || "Voice uploaded successfully");
                     
                     // Clear form and hide progress
                     document.getElementById("voiceName").value = "";
