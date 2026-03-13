@@ -101,7 +101,8 @@
                                 <thead>
                                     <tr class="border-b border-slate-700">
                                         <th class="text-left p-3">Voice Name</th>
-                                        <th class="text-left p-3">Category</th>
+                                        <th class="text-left p-3">Gender</th>
+                                        <th class="text-left p-3">Language</th>
                                         <th class="text-left p-3">Status</th>
                                         <th class="text-left p-3">Actions</th>
                                     </tr>
@@ -260,26 +261,7 @@
             <span id="toastMessage"></span>
         </div>
         
-        <!-- Edit Voice Modal -->
-        <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-            <div class="bg-slate-800 p-6 rounded-lg w-96">
-                <h3 class="text-xl font-bold mb-4">Edit Voice</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium mb-2">Voice Name</label>
-                        <input id="editName" type="text" class="w-full p-3 bg-slate-700 rounded">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-2">Category</label>
-                        <input id="editCategory" type="text" class="w-full p-3 bg-slate-700 rounded">
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="saveVoiceEdit()" class="flex-1 bg-blue-600 hover:bg-blue-700 p-3 rounded font-semibold">Save</button>
-                        <button onclick="closeEditModal()" class="flex-1 bg-gray-600 hover:bg-gray-700 p-3 rounded font-semibold">Cancel</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+
     </div>
 
     <script>
@@ -475,12 +457,12 @@
                     table.innerHTML = voices.map(v => `
                         <tr class="border-b border-slate-700">
                             <td class="p-3">${v.name || v}</td>
-                            <td class="p-3">${v.category || 'N/A'}</td>
+                            <td class="p-3">${v.gender || 'N/A'}</td>
+                            <td class="p-3">${v.language || 'N/A'}</td>
                             <td class="p-3"><span class="text-green-500">Loaded</span></td>
                             <td class="p-3">
-                                <button onclick="testVoice('${v.name || v}')" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm mr-2">Test</button>
-                                <button onclick="editVoice('${v.name || v}','${v.category || ''}')" class="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded text-sm mr-2">Edit</button>
-                                <button onclick="deleteVoice('${v.name || v}')" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm">Delete</button>
+                                <button onclick="testVoice('${v.name || v}')" class="btn-test bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm mr-2">Test</button>
+                                <button onclick="deleteVoice('${v.name || v}')" class="btn-delete bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm">Delete</button>
                             </td>
                         </tr>
                     `).join("");
@@ -849,56 +831,7 @@
             return card;
         }
 
-        // Edit Voice Functions
-        let selectedVoice = '';
-        
-        function editVoice(name, category) {
-            selectedVoice = name;
-            document.getElementById("editName").value = name;
-            document.getElementById("editCategory").value = category;
-            document.getElementById("editModal").style.display = "flex";
-        }
-        
-        function closeEditModal() {
-            document.getElementById("editModal").style.display = "none";
-            selectedVoice = '';
-        }
-        
-        async function saveVoiceEdit() {
-            const newName = document.getElementById("editName").value;
-            const category = document.getElementById("editCategory").value;
-            
-            if (!newName || !category) {
-                showToast('Please fill in all fields', 'error');
-                return;
-            }
-            
-            try {
-                const res = await fetch(`${API_BASE}/admin/edit_voice`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({
-                        old_name: selectedVoice,
-                        new_name: newName,
-                        category: category
-                    })
-                });
-                
-                if (res.ok) {
-                    showToast('Voice updated successfully!', 'success');
-                    closeEditModal();
-                    await loadVoices();
-                } else {
-                    const error = await res.json().catch(() => ({}));
-                    handleApiError(res, { message: error.detail || 'Update failed' });
-                }
-            } catch (err) {
-                handleApiError(null, err);
-            }
-        }
+
 
         // Format Downloads Count
         function formatDownloads(downloads) {
