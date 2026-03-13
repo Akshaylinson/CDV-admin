@@ -167,12 +167,22 @@
                 this.voiceSelect = document.getElementById('voiceSelect');
                 this.statusDot = document.getElementById('statusDot');
                 this.statusText = document.getElementById('statusText');
-                this.log = document.getElementById('log');
+                this.logEl = document.getElementById('log');
                 this.chunkCountEl = document.getElementById('chunkCount');
                 this.totalSizeEl = document.getElementById('totalSize');
 
                 this.startBtn.addEventListener('click', () => this.startStreaming());
                 this.stopBtn.addEventListener('click', () => this.stopStreaming());
+            }
+
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const entry = document.createElement('div');
+                entry.className = `log-entry log-${type}`;
+                entry.textContent = `[${timestamp}] ${message}`;
+                
+                this.logEl.appendChild(entry);
+                this.logEl.scrollTop = this.logEl.scrollHeight;
             }
 
             // Initialize Web Audio API for real-time playback
@@ -203,13 +213,15 @@
 
             // Update waveform visualization with audio data
             updateWaveform(audioData) {
-                if (!audioData) return;
+                if (!audioData || audioData.length === 0) return;
                 
-                // Simple visualization - use audio data to animate bars
+                // Simple visualization - use raw audio data to animate bars
                 const step = Math.floor(audioData.length / this.waveBars.length);
                 this.waveBars.forEach((bar, i) => {
                     const sample = audioData[i * step] || 0;
-                    const height = Math.abs(sample) * 100 + 2;
+                    // Normalize byte value (0-255) to height percentage
+                    const normalized = sample / 255;
+                    const height = Math.max(normalized * 80 + 5, 2);
                     bar.style.height = Math.min(height, 100) + 'px';
                 });
             }
@@ -273,34 +285,61 @@
                     // Convert blob to array buffer for audio processing
                     const arrayBuffer = await chunk.arrayBuffer();
                     
-                    // Decode and play audio chunk immediately
-                    this.playAudioChunk(arrayBuffer);
+                    // Add to audio buffer queue and play
+                    this.audioBuffer.push(arrayBuffer);
+                    this.playAudioStream();
                     
                 } catch (error) {
                     this.log('Error processing audio chunk: ' + error.message, 'error');
                 }
             }
 
-            // Decode and play audio chunk using Web Audio API
-            async playAudioChunk(arrayBuffer) {
+            // Play audio stream using HTML5 Audio with blob URLs
+            playAudioStream() {
+                if (this.audioBuffer.length === 0 || this.isPlaying) return;
+                
                 try {
-                    // Decode audio data
-                    const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                    // Combine all buffered chunks
+                    const totalSize = this.audioBuffer.reduce((sum, buffer) => sum + buffer.byteLength, 0);
+                    const combinedBuffer = new Uint8Array(totalSize);
+                    let offset = 0;
                     
-                    // Create audio source and play immediately
-                    const source = this.audioContext.createBufferSource();
-                    source.buffer = audioBuffer;
-                    source.connect(this.audioContext.destination);
+                    for (const buffer of this.audioBuffer) {
+                        combinedBuffer.set(new Uint8Array(buffer), offset);
+                        offset += buffer.byteLength;
+                    }
                     
-                    // Update waveform visualization
-                    const channelData = audioBuffer.getChannelData(0);
-                    this.updateWaveform(channelData);
+                    // Create blob and play with HTML5 Audio
+                    const audioBlob = new Blob([combinedBuffer], { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
                     
-                    // Play the audio chunk
-                    source.start();
+                    const audio = new Audio(audioUrl);
+                    audio.onloadeddata = () => {
+                        this.isPlaying = true;
+                        audio.play().catch(e => {
+                            this.log('Audio play failed: ' + e.message, 'error');
+                            this.isPlaying = false;
+                        });
+                    };
+                    
+                    audio.onended = () => {
+                        this.isPlaying = false;
+                        URL.revokeObjectURL(audioUrl);
+                        this.audioBuffer = []; // Clear buffer after playing
+                    };
+                    
+                    audio.onerror = (e) => {
+                        this.log('Audio error: ' + e.message, 'error');
+                        this.isPlaying = false;
+                        URL.revokeObjectURL(audioUrl);
+                    };
+                    
+                    // Update waveform with sample data
+                    this.updateWaveform(combinedBuffer.slice(0, 1000));
                     
                 } catch (error) {
-                    this.log('Error playing audio: ' + error.message, 'error');
+                    this.log('Error playing audio stream: ' + error.message, 'error');
+                    this.isPlaying = false;
                 }
             }
 
@@ -327,15 +366,7 @@
                 this.totalSizeEl.textContent = (this.totalBytes / 1024).toFixed(1) + ' KB';
             }
 
-            log(message, type = 'info') {
-                const timestamp = new Date().toLocaleTimeString();
-                const entry = document.createElement('div');
-                entry.className = `log-entry log-${type}`;
-                entry.textContent = `[${timestamp}] ${message}`;
-                
-                this.log.appendChild(entry);
-                this.log.scrollTop = this.log.scrollHeight;
-            }
+
         }
 
         // Initialize the TTS Streamer when page loads
